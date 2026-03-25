@@ -1,4 +1,4 @@
-#define BLYNK_TEMPLATE_ID "TMPL6MAIMdAca"  // Write Blynk TEMPLATE Id
+#define BLYNK_TEMPLATE_ID "Blynk TEMPLATE Id"  // Write Blynk TEMPLATE Id
 #define BLYNK_TEMPLATE_NAME "Security Alarm"
 #define BLYNK_AUTH_TOKEN "BLYNK AUTH TOKEN"  // Write BLYNK AUTH TOKEN    
 #define BLYNK_PRINT Serial
