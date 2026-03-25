@@ -1,7 +1,6 @@
-#define BLYNK_TEMPLATE_ID "TMPL6MAIMdAca"
+#define BLYNK_TEMPLATE_ID "TMPL6MAIMdAca"  // Write Blynk TEMPLATE Id
 #define BLYNK_TEMPLATE_NAME "Security Alarm"
-#define BLYNK_AUTH_TOKEN "iyW8HjAmaFVYMKciwhbINUr52wjfWJ_d"
-
+#define BLYNK_AUTH_TOKEN "BLYNK AUTH TOKEN"  // Write BLYNK AUTH TOKEN    
 #define BLYNK_PRINT Serial
 
 #include <WiFi.h>
