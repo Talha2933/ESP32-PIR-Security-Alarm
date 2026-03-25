@@ -1,7 +1,6 @@
-#define BLYNK_TEMPLATE_ID "TMPL6MAIMdAca"
+#define BLYNK_TEMPLATE_ID "Blynk TEMPLATE Id"  // Write Blynk TEMPLATE Id
 #define BLYNK_TEMPLATE_NAME "Security Alarm"
-#define BLYNK_AUTH_TOKEN "iyW8HjAmaFVYMKciwhbINUr52wjfWJ_d"
-
+#define BLYNK_AUTH_TOKEN "BLYNK AUTH TOKEN"  // Write BLYNK AUTH TOKEN    
 #define BLYNK_PRINT Serial
 
 #include <WiFi.h>
@@ -13,6 +12,7 @@ const char* ssid1 = "Wifi Name"; // Wifi Name
 const char* pass1 = "Password"; //  Password
 const char* ssid2 = "Second Wifi Name"; //Second Wifi Name
 const char* pass2 = "Password"; //Password
+
 
 // ---------------- Pins ----------------
 const int motionsensor = 27;
