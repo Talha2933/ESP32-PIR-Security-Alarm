@@ -9,10 +9,11 @@
 #include <BlynkSimpleEsp32.h>
 
 // ---------------- WiFi ----------------
-const char* ssid1 = "Redmi";
-const char* pass1 = "juttsb202";
-const char* ssid2 = "Malik Ba";
-const char* pass2 = "002565malik";
+const char* ssid1 = "Wifi Name"; // Wifi Name
+const char* pass1 = "Password"; //  Password
+const char* ssid2 = "Second Wifi Name"; //Second Wifi Name
+const char* pass2 = "Password"; //Password
+
 
 // ---------------- Pins ----------------
 const int motionsensor = 27;
