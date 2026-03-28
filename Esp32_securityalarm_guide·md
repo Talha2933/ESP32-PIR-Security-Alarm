@@ -1,423 +1,263 @@
-# ESP32 IoT Security Alarm System
+# 🔐 ESP32 IoT Security Alarm System
 
-> Complete Setup, Configuration & GitHub Upload Guide
+<div align="center">
 
-**Version 3.0 • Blynk IoT • Arduino IDE**  
-📺 YouTube: [@funwithelectronics273](https://youtube.com/@funwithelectronics273)  
-💻 GitHub: [github.com/funwithelectronics273](https://https://github.com/Talha2933)
+![ESP32](https://img.shields.io/badge/ESP32-Microcontroller-blue?style=for-the-badge&logo=espressif)
+![Blynk](https://img.shields.io/badge/Blynk-IoT-00C853?style=for-the-badge)
+![Arduino](https://img.shields.io/badge/Arduino-IDE-teal?style=for-the-badge&logo=arduino)
+![Version](https://img.shields.io/badge/Version-3.0-orange?style=for-the-badge)
+![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
 
----
+**A WiFi-connected PIR motion alarm with remote monitoring via Blynk IoT.**  
+Triggers instantly — even without internet.
 
-## Table of Contents
+[📺 YouTube](https://youtube.com/@funwithelectronics273) • [💻 GitHub](https://github.com/Talha2933)
 
-1. [Project Overview](#1-project-overview)
-2. [Blynk IoT Configuration](#2-blynk-iot-configuration)
-3. [Arduino IDE Setup](#3-arduino-ide-setup)
-4. [Offline Mode Explained](#4-offline-mode-explained)
-5. [Uploading to GitHub](#5-uploading-to-github)
-6. [Troubleshooting](#6-troubleshooting)
+</div>
 
 ---
 
-## 1. Project Overview
+## 📋 Table of Contents
 
-This project turns an ESP32 microcontroller into a WiFi-connected PIR motion alarm that you can monitor and control remotely from your phone using the Blynk IoT platform. When motion is detected the relay fires immediately — even without internet — and Blynk sends you a push notification and email alert.
-
-### 1.1 Key Features
-
-- PIR motion detection with configurable hold time
-- Works fully offline — relay triggers without WiFi
-- Quick WiFi switch: tries primary network, instantly falls back to secondary
-- Blynk push notification + email on every motion event
-- Real-time ESP32 chip temperature on dashboard (every 2 seconds)
-- Live uptime counter (HH:MM:SS)
-- No external temperature library required
-
-### 1.2 Virtual Pin Map
-
-| Pin | Data Type | Range    | Purpose                        |
-|-----|-----------|----------|--------------------------------|
-| V0  | Integer   | 0 / 1    | Motion indicator LED widget    |
-| V1  | String    | —        | Motion status text label       |
-| V2  | Integer   | 0 / 1    | Alarm ON / OFF switch button   |
-| V3  | Double    | 0 – 100  | ESP32 chip temperature in °C   |
-| V5  | String    | —        | ESP32 uptime HH:MM:SS          |
-
-### 1.3 Hardware Required
-
-| Component                       | Quantity | Notes                          |
-|---------------------------------|----------|--------------------------------|
-| ESP32 Dev Board (any variant)   | 1        | 38-pin or 30-pin both work     |
-| HC-SR501 PIR Motion Sensor      | 1        | Adjust sensitivity as needed   |
-| 5V Relay Module                 | 1        | Active-HIGH, GPIO 22           |
-| Buzzer or Siren (optional)      | 1        | Connect to relay NO terminal   |
-| Micro USB Cable + 5V Adapter    | 1        | Minimum 1A rated               |
+- [Project Overview](#-project-overview)
+- [Features](#-features)
+- [Hardware Components](#-hardware-components)
+- [Pin Configuration](#-pin-configuration)
+- [Blynk Virtual Pins](#-blynk-virtual-pins)
+- [WiFi Setup](#-wifi-setup)
+- [Offline Mode](#-offline-mode)
+- [Blynk Mobile Dashboard](#-blynk-mobile-dashboard)
+- [Getting Started](#-getting-started)
+- [Troubleshooting](#-troubleshooting)
+- [Security Warning](#-security-warning)
+- [License](#-license)
 
 ---
 
-## 2. Blynk IoT Configuration
+## 📌 Project Overview
 
-Complete these steps in the Blynk web dashboard ([blynk.cloud](https://blynk.cloud)) before uploading any code. The dashboard and mobile app share the same configuration.
+This project turns an **ESP32 microcontroller** into a WiFi-connected PIR motion alarm you can monitor and control remotely from your phone using the [Blynk IoT](https://blynk.cloud) platform.
 
-### Step 1 — Create a Blynk Account
-
-1. Open your browser and go to: [blynk.cloud](https://blynk.cloud)
-2. Click **Sign Up** and create a free account using your email address.
-3. Verify your email when the confirmation message arrives.
-4. Log in to the Blynk web dashboard.
-
-### Step 2 — Create a New Template
-
-> **What is a Template?**  
-> A template is a reusable blueprint that defines what your device can do. All data streams, events, and dashboard layouts are stored inside it.
-
-5. In the left sidebar click **Developer Zone**, then click **My Templates**.
-6. Click the blue **+ New Template** button in the top right.
-7. Fill in the form exactly as shown below:
-
-| Field                  | Value to Enter                            |
-|------------------------|-------------------------------------------|
-| **Template Name**      | Security Alarm                            |
-| **Hardware**           | ESP32                                     |
-| **Connection Type**    | WiFi                                      |
-| **Description**        | PIR motion alarm by Fun With Electronics  |
-
-8. Click **Done** to save the template.
-9. You will see your **Template ID** at the top of the page — copy it now.
-10. Click the key icon to view and copy your **Auth Token**.
-
-> ⚠️ **Important — Save These Credentials**  
-> Template ID and Auth Token are secret. Paste them into the `#define` lines at the top of the `.ino` file. Never share them publicly.
-
-### Step 3 — Create Datastreams (Virtual Pins)
-
-Datastreams define the data channels between your ESP32 and Blynk. Create each one below inside your template under the **Datastreams** tab.
-
-#### V0 — Motion Indicator
-
-| Field          | Value            |
-|----------------|------------------|
-| Virtual Pin    | V0               |
-| Name           | Motion Indicator |
-| Data Type      | Integer          |
-| Min Value      | 0                |
-| Max Value      | 1                |
-
-#### V1 — Motion Status
-
-| Field          | Value         |
-|----------------|---------------|
-| Virtual Pin    | V1            |
-| Name           | Motion Status |
-| Data Type      | String        |
-
-#### V2 — Alarm Control Switch
-
-| Field          | Value         |
-|----------------|---------------|
-| Virtual Pin    | V2            |
-| Name           | Alarm Control |
-| Data Type      | Integer       |
-| Min Value      | 0             |
-| Max Value      | 1             |
-
-#### V3 — ESP32 Temperature
-
-| Field          | Value            |
-|----------------|------------------|
-| Virtual Pin    | V3               |
-| Name           | Chip Temperature |
-| Data Type      | Double           |
-| Min Value      | 0                |
-| Max Value      | 100              |
-| Units          | °C               |
-
-> **Note on Temperature Readings**  
-> V3 shows ESP32 chip die temperature — not room temperature. A reading of 45–65°C is completely normal during operation. The chip runs 10–20°C hotter than ambient air. Only worry if it goes above 80°C.
-
-#### V5 — Uptime
-
-| Field          | Value        |
-|----------------|--------------|
-| Virtual Pin    | V5           |
-| Name           | ESP32 Uptime |
-| Data Type      | String       |
-
-### Step 4 — Create the Motion Detected Event
-
-Events trigger push notifications and emails automatically when called from your code. This is what sends you the alarm alert.
-
-11. Inside your template click the **Events** tab.
-12. Click **+ Add New Event**.
-13. Fill in the form exactly as below:
-
-| Field                    | Value                                      |
-|--------------------------|--------------------------------------------|
-| **Event Code**           | `motion_detected`                          |
-| **Event Name**           | Motion Detected                            |
-| **Description**          | Critical: Motion detected in security area |
-| **Type**                 | Critical                                   |
-| **Send Push Notification** | Yes (enable toggle)                      |
-| **Send Email**           | Yes (enable toggle)                        |
-
-14. Click **Save**.
-
-> **Critical Event Type**  
-> Setting the event type to **Critical** causes Blynk to display a prominent red alarm banner in the mobile app and makes the notification bypass silent mode on most phones.
-
-### Step 5 — Build the Mobile Dashboard
-
-Open the Blynk mobile app (iOS or Android), tap your device, then tap the edit (pencil) icon to add widgets.
-
-| Widget Type          | Pin | Label         | Settings               |
-|----------------------|-----|---------------|------------------------|
-| Button               | V2  | Alarm Switch  | Mode: Switch           |
-| LED                  | V0  | Motion        | Color: Red             |
-| Label                | V1  | Status        | Font: Medium           |
-| Gauge or SuperChart  | V3  | Chip Temp °C  | Min: 0, Max: 100       |
-| Label                | V5  | Uptime        | Font: Small            |
-
-> **SuperChart Tip**  
-> Use SuperChart for V3 instead of a plain Gauge to see temperature history over time. Tap SuperChart, select V3, and set the time range to **Live** for a real-time scrolling graph.
+When motion is detected:
+- ✅ The **relay fires immediately** — even without internet
+- ✅ Blynk sends a **push notification** to your phone
+- ✅ Blynk sends an **email alert**
 
 ---
 
-## 3. Arduino IDE Setup
+## ✨ Features
 
-### Step 1 — Install Arduino IDE
+| Feature | Description |
+|---|---|
+| 🚶 Motion Detection | PIR sensor with configurable hold time |
+| 📴 Offline Operation | Relay triggers without WiFi |
+| 🔁 WiFi Auto-Fallback | Tries primary, instantly switches to backup network |
+| 🔔 Blynk Alerts | Push notification + email on every motion event |
+| 🌡️ Temperature Monitor | Real-time ESP32 chip temp (updated every 2 seconds) |
+| ⏱️ Uptime Counter | Live HH:MM:SS uptime display on dashboard |
+| 🛡️ False Trigger Guard | 5-second PIR warm-up when alarm is armed |
+| 📦 No Extra Libraries | Built-in temperature sensor — no library needed |
 
-15. Download Arduino IDE 2.x from: [arduino.cc/en/software](https://arduino.cc/en/software)
-16. Run the installer and follow the on-screen steps.
-17. Launch Arduino IDE after installation.
+---
 
-### Step 2 — Add ESP32 Board Support
+## 🔧 Hardware Components
 
-18. Open Arduino IDE.
-19. Go to **File > Preferences** (Windows/Linux) or **Arduino IDE > Preferences** (Mac).
-20. Find the field labeled **Additional boards manager URLs**.
-21. Paste this URL into that field:
+| Component | Qty | Notes |
+|---|---|---|
+| ESP32 Dev Board (any variant) | 1 | 38-pin or 30-pin both work |
+| HC-SR501 PIR Motion Sensor | 1 | Adjust sensitivity as needed |
+| 5V Relay Module | 1 | Active-HIGH, connected to GPIO 22 |
+| Buzzer or Siren *(optional)* | 1 | Connect to relay NO terminal |
+| Micro USB Cable + 5V Adapter | 1 | Minimum 1A rated |
 
-```
-https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
-```
+---
 
-22. Click **OK** to close Preferences.
-23. Go to **Tools > Board > Boards Manager**.
-24. Search for `esp32` in the search box.
-25. Find the entry by **Espressif Systems** and click **Install**. Wait for it to finish.
+## 📌 Pin Configuration
 
-### Step 3 — Install Blynk Library
+| Signal | GPIO | Notes |
+|---|---|---|
+| PIR Sensor | 27 | Digital input |
+| Relay | 22 | Active-HIGH output |
+| Status LED | 2 | Built-in LED on most boards |
 
-26. Go to **Sketch > Include Library > Manage Libraries**.
-27. Search for `Blynk` in the search box.
-28. Find **Blynk** by Volodymyr Shymanskyy and click **Install**.
-29. Click **Close** when the installation finishes.
+---
 
-### Step 4 — Configure and Upload the Code
+## 📡 Blynk Virtual Pins
 
-30. Open the `SecurityAlarm.ino` file in Arduino IDE.
-31. Find these four lines near the top and update them:
+| Pin | Data Type | Range | Purpose |
+|---|---|---|---|
+| V0 | Integer | 0 / 1 | Motion indicator LED widget |
+| V1 | String | — | Motion status text label |
+| V2 | Integer | 0 / 1 | Alarm ON / OFF switch button |
+| V3 | Double | 0–100 | ESP32 chip temperature (°C) |
+| V4 | Integer | 0 / 1 | ESP32 online/offline status |
+| V5 | String | — | ESP32 uptime (HH:MM:SS) |
+
+> **ℹ️ Note on V3 Temperature**  
+> V3 reads **chip die temperature**, not room temperature. A reading of **45–65°C is completely normal**. The chip runs 10–20°C hotter than ambient air. Only be concerned if it exceeds **80°C**.
+
+---
+
+## 📶 WiFi Setup
+
+Update your credentials in `SecurityAlarm.ino` before uploading:
 
 ```cpp
-#define BLYNK_TEMPLATE_ID  "TMPL6FzZahujl"   // paste your Template ID
-#define BLYNK_AUTH_TOKEN   "YOUR_AUTH_TOKEN"  // paste your Auth Token
-
-const char* WIFI_SSID1 = "YourWiFiName";      // your primary WiFi name
-const char* WIFI_PASS1 = "YourPassword";      // your primary WiFi password
-```
-
-32. Plug the ESP32 into your computer using a Micro USB cable.
-33. Go to **Tools > Board** and select **ESP32 Dev Module** (or your specific board name).
-34. Go to **Tools > Port** and select the COM port your ESP32 is on.  
-    On Windows it will be COM3, COM4, etc. On Mac/Linux it will be `/dev/ttyUSB0` or similar.
-35. Click the **Upload** button (right arrow icon) or press `Ctrl+U`.
-36. Wait for the upload to complete. You will see **Done uploading** in the status bar.
-37. Open the Serial Monitor (**Tools > Serial Monitor**) and set the baud rate to `115200`.
-38. You should see connection messages and then `Blynk ONLINE` printed in the monitor.
-
-### Step 5 — Test the System
-
-39. Open the Blynk mobile app and tap your device dashboard.
-40. Tap the **Alarm Switch** button to turn the alarm **ON**.
-41. Wait 5 seconds (PIR warm-up) then walk past the sensor.
-42. The Motion LED should turn red and a push notification should arrive.
-43. Turn off your WiFi router — the relay should still trigger on motion (offline mode).
-
----
-
-## 4. Offline Mode Explained
-
-The alarm is designed to work completely without internet. Here is exactly what happens in each scenario:
-
-| Scenario                              | Relay / Buzzer              | Blynk Dashboard                                     |
-|---------------------------------------|-----------------------------|-----------------------------------------------------|
-| WiFi connected, alarm ON              | Triggers on motion          | Notification + LED + label update                   |
-| WiFi lost mid-session, alarm ON       | Still triggers on motion    | Dashboard shows device offline                      |
-| No WiFi at all, alarm ON              | Still triggers on motion    | No update (no connection)                           |
-| WiFi reconnects                       | Continues normally          | Alarm switch state restored via `syncVirtual(V2)`   |
-
-> **How Offline Works in the Code**  
-> The relay is driven by `setAlarmOutput()` which calls `digitalWrite(PIN_RELAY, HIGH)` regardless of WiFi state. The `Blynk.virtualWrite()` calls are wrapped in `if (Blynk.connected())` checks so they are simply skipped when offline. The physical siren always works.
-
-### WiFi Quick-Switch Logic
-
-If the primary WiFi network is unavailable the ESP32 automatically tries the backup network within 8 seconds. Here is the sequence:
-
-44. On boot (or after WiFi loss is detected), `tryConnect()` attempts `WIFI_SSID1` for 8 seconds.
-45. If `WIFI_SSID1` fails, `tryConnect()` immediately attempts `WIFI_SSID2` for 8 seconds.
-46. If both fail, the ESP runs in offline mode and checks again every 20 seconds.
-47. The moment either network becomes available the ESP reconnects and Blynk resumes.
-
-> **Tip: Set WIFI_SSID2 to Your Mobile Hotspot**  
-> If your home router goes down you can enable your phone hotspot with the name and password set in `WIFI_SSID2`. The ESP32 will automatically connect to your phone within 8 seconds.
-
----
-
-## 5. Uploading to GitHub
-
-Follow these steps to publish your project to GitHub. No prior Git experience is required.
-
-### Step 1 — Create a GitHub Account *(skip if you have one)*
-
-48. Go to [github.com](https://github.com) and click **Sign up**.
-49. Enter your email, create a password, and choose a username.
-50. Verify your email address when the confirmation arrives.
-51. Log in to your GitHub account.
-
-### Step 2 — Create a New Repository
-
-52. Once logged in, click the green **New** button on your GitHub home page.
-53. Fill in the repository form:
-
-| Field                  | What to Enter                                  |
-|------------------------|------------------------------------------------|
-| **Repository name**    | ESP32-Security-Alarm                           |
-| **Description**        | PIR motion alarm with Blynk IoT notifications  |
-| **Visibility**         | Public (so others can see your project)        |
-| **Add a README file**  | Yes — check this box                           |
-| **Add .gitignore**     | Select Arduino from the dropdown               |
-| **Choose a license**   | MIT License (recommended for open source)      |
-
-54. Click **Create repository**.
-
-### Step 3 — Install Git on Your Computer
-
-55. **Windows:** Download from [git-scm.com](https://git-scm.com) and run the installer. Accept all defaults.
-56. **Mac:** Open Terminal and type `git --version`. If Git is not installed, macOS will prompt you to install it.
-57. **Linux:** Open Terminal and run: `sudo apt install git`
-
-Verify Git is installed:
-
-```bash
-git --version
-```
-
-### Step 4 — Set Up Your Identity in Git
-
-Do this once on your computer. It attaches your name to every upload.
-
-```bash
-git config --global user.name "Fun With Electronics"
-git config --global user.email "your@email.com"
-```
-
-### Step 5 — ⚠️ IMPORTANT: Remove Credentials from the Code
-
-> **Security Warning — Do This Before Uploading**  
-> Never upload your Auth Token or WiFi password to a public GitHub repository. Anyone who finds them can control your device. Replace the real values with placeholder text before uploading.
-
-Open `SecurityAlarm.ino` and change these lines to placeholders:
-
-```cpp
+// Blynk Credentials
+#define BLYNK_TEMPLATE_ID  "YOUR_TEMPLATE_ID"
 #define BLYNK_AUTH_TOKEN   "YOUR_AUTH_TOKEN_HERE"
 
+// Primary WiFi
 const char* WIFI_SSID1 = "YOUR_WIFI_NAME";
 const char* WIFI_PASS1 = "YOUR_WIFI_PASSWORD";
+
+// Backup WiFi (e.g. mobile hotspot)
 const char* WIFI_SSID2 = "YOUR_BACKUP_WIFI_NAME";
 const char* WIFI_PASS2 = "YOUR_BACKUP_PASSWORD";
 ```
 
-### Step 6 — Upload Files Using GitHub Website *(Easiest Method)*
+> ⚠️ **Never commit real credentials to a public repository.** Always use placeholder text as shown above.
 
-58. Open your repository on GitHub.
-59. Click **Add file > Upload files**.
-60. Drag and drop your `SecurityAlarm.ino` file into the upload area.
-61. Scroll down to the **Commit changes** section.
-62. In the commit message box type: `Add ESP32 Security Alarm sketch v3.0`
-63. Click **Commit changes** (green button).
-64. Your file is now live on GitHub.
+### 🔄 Auto Fallback Logic
 
-### Step 7 — Upload Using Git Command Line *(Advanced)*
+If the primary network is unavailable, the ESP32 switches automatically:
 
-This method is faster once set up and lets you track all future changes.
-
-65. Open a terminal (Command Prompt on Windows, Terminal on Mac/Linux).
-66. Navigate to the folder containing your `.ino` file:
-
-```bash
-cd path/to/your/SecurityAlarm/folder
+```
+Boot
+ │
+ ├─ Try WIFI_SSID1 ──── success ──► Connect & run normally
+ │        │
+ │      8 sec timeout
+ │        │
+ ├─ Try WIFI_SSID2 ──── success ──► Connect & run normally
+ │        │
+ │      8 sec timeout
+ │        │
+ └─ Offline Mode ──────────────► Retry every 20 seconds
 ```
 
-67. Initialize Git in that folder:
-
-```bash
-git init
-```
-
-68. Link your folder to your GitHub repository (replace the URL with yours):
-
-```bash
-git remote add origin https://github.com/funwithelectronics273/ESP32-Security-Alarm.git
-```
-
-69. Stage all files:
-
-```bash
-git add .
-```
-
-70. Create your first commit:
-
-```bash
-git commit -m "Add ESP32 Security Alarm sketch v3.0"
-```
-
-71. Push to GitHub:
-
-```bash
-git push -u origin main
-```
-
-72. Enter your GitHub username and password (or personal access token) when prompted.
-
-> **Personal Access Token**  
-> GitHub no longer accepts regular passwords for command-line pushes. Go to **github.com > Settings > Developer Settings > Personal Access Tokens > Tokens (classic) > Generate new token**. Give it `repo` scope and use this token as your password.
-
-### Step 8 — Update Your README
-
-A good README helps people understand your project. On GitHub, open `README.md` and click the pencil icon to edit it. Include:
-
-- Project title and a one-line description
-- A photo or wiring diagram of your build
-- The virtual pin table from [Section 1.2](#12-virtual-pin-map)
-- Step-by-step instructions referencing this guide
-- Your YouTube channel link: [youtube.com/@funwithelectronics273](https://youtube.com/@funwithelectronics273)
-- License information
+> 💡 **Tip:** Set `WIFI_SSID2` to your **mobile hotspot**. If your router goes down, just enable your hotspot and the ESP32 reconnects within 8 seconds.
 
 ---
 
-## 6. Troubleshooting
+## 📴 Offline Mode
+
+The alarm works **without internet**. Here's exactly what happens:
+
+| Scenario | Relay / Buzzer | Blynk Dashboard |
+|---|---|---|
+| WiFi connected, alarm ON | ✅ Triggers on motion | Notification + LED + label update |
+| WiFi lost mid-session, alarm ON | ✅ Still triggers | Shows device offline |
+| No WiFi at all, alarm ON | ✅ Still triggers | No update (no connection) |
+| WiFi reconnects | ✅ Continues normally | State restored via `syncVirtual(V2)` |
+
+> **How it works in code:**  
+> The relay is driven by `setAlarmOutput()` which calls `digitalWrite(PIN_RELAY, HIGH)` regardless of WiFi state. All `Blynk.virtualWrite()` calls are wrapped in `if (Blynk.connected())` — they're simply skipped when offline. **The physical alarm always works.**
+
+---
+
+## 📱 Blynk Mobile Dashboard
+
+Open the Blynk mobile app → tap your device → tap the ✏️ pencil icon to add widgets:
+
+| Widget | Pin | Label | Settings |
+|---|---|---|---|
+| Button | V2 | Alarm Switch | Mode: Switch |
+| LED | V0 | Motion | Color: Red |
+| Label | V1 | Status | Font: Medium |
+| Gauge / SuperChart | V3 | Chip Temp °C | Min: 0, Max: 100 |
+| Label | V5 | Uptime | Font: Small |
+
+> 💡 **SuperChart Tip:** Use **SuperChart** for V3 instead of a Gauge to see temperature history. Set the range to **Live** for a real-time scrolling graph.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- [Arduino IDE 2.x](https://arduino.cc/en/software)
+- ESP32 board support — add this URL in **File > Preferences > Additional Board Manager URLs**:
+  ```
+  https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json
+  ```
+  Then install **esp32 by Espressif Systems** via **Tools > Board > Boards Manager**
+- **Blynk library** — install via **Sketch > Include Library > Manage Libraries** → search `Blynk`
+- A free account at [blynk.cloud](https://blynk.cloud)
+
+### Installation
+
+**1. Clone the repository**
+```bash
+git clone https://github.com/Talha2933/ESP32-Security-Alarm.git
+cd ESP32-Security-Alarm
+```
+
+**2. Set up Blynk** *(blynk.cloud)*
+- Create a new Template: Hardware = ESP32, Connection = WiFi
+- Add datastreams for V0, V1, V2, V3, V4, V5 (see [Virtual Pins](#-blynk-virtual-pins))
+- Create event: code = `motion_detected`, Type = Critical, enable push + email
+- Copy your **Template ID** and **Auth Token**
+
+**3. Configure credentials**  
+Open `SecurityAlarm.ino` and fill in your Blynk credentials and WiFi details (see [WiFi Setup](#-wifi-setup))
+
+**4. Upload**
+- Connect ESP32 via USB
+- Select board: **Tools > Board > ESP32 Dev Module**
+- Select port: **Tools > Port**
+- Click **Upload** (`Ctrl+U`)
+- Open Serial Monitor at `115200` baud — you should see `Blynk ONLINE`
+
+**5. Test**
+1. Open the Blynk app and turn the **Alarm Switch ON**
+2. Wait **5 seconds** (PIR warm-up delay)
+3. Walk past the sensor
+4. The relay should trigger and a push notification should arrive on your phone
+5. Try turning off your router — the relay should **still** fire on motion ✅
+
+---
+
+## 🛠️ Troubleshooting
 
 | Problem | Solution |
-|---------|----------|
-| Blynk shows device offline even when ESP is running | This is correct behaviour when WiFi is disconnected. The `BLYNK_DISCONNECTED()` callback sends V4=0 before socket closes. Check your router. |
-| Temperature shows 53°C or similar at rest | This is normal. The sensor reads chip die temperature which is 10–20°C above room temperature. It is not broken. |
-| No push notification received | Check that the event code in Blynk exactly matches `motion_detected` (lowercase, underscore). Enable notifications in the Blynk app settings. |
-| PIR triggers immediately when alarm turns ON | The 5-second warm-up window handles this. If false triggers persist, increase `PIR_IGNORE_MS` to `8000` or `10000` in the code. |
-| WiFi 2 not connecting | Confirm `WIFI_SSID2` and `WIFI_PASS2` are correct. SSID is case-sensitive. Ensure the second network is in range and has DHCP enabled. |
-| COM port not visible in Arduino IDE | Install the CP2102 or CH340 USB driver for your ESP32 board. Search for your board model + USB driver online. |
-| Upload fails with 'Failed to connect' | Hold the **BOOT** button on the ESP32 while clicking Upload. Release after you see `Connecting...` in the IDE. |
+|---|---|
+| Blynk shows device offline even when ESP is running | Normal behaviour when WiFi disconnects. `BLYNK_DISCONNECTED()` sends V4=0 before socket closes. Check your router. |
+| Temperature reads 53°C at rest | Normal — chip die temperature runs 10–20°C above room temp. Not a fault. |
+| No push notification received | Ensure the event code in Blynk is exactly `motion_detected` (lowercase, underscore). Enable notifications in Blynk app settings. |
+| PIR triggers immediately when alarm turns ON | Increase `PIR_IGNORE_MS` to `8000` or `10000` in the code to extend the warm-up delay. |
+| WiFi 2 not connecting | Check `WIFI_SSID2` / `WIFI_PASS2` — SSID is case-sensitive. Ensure DHCP is enabled on that network. |
+| COM port not visible in Arduino IDE | Install the **CP2102** or **CH340** USB driver for your board. Search for your board model + "USB driver". |
+| Upload fails with 'Failed to connect' | Hold the **BOOT** button on ESP32 while clicking Upload. Release after seeing `Connecting...` in the IDE. |
 
 ---
 
-*Made with ❤️ by Fun With Electronics • [YouTube](https://youtube.com/@funwithelectronics273) • [GitHub](https://github.com/funwithelectronics273)*
+## ⚠️ Security Warning
+
+> **Never upload real credentials to a public repository.**  
+> Your `BLYNK_AUTH_TOKEN` and WiFi passwords must be replaced with placeholder text before committing to GitHub. Anyone with your Auth Token can control your device remotely.
+
+Consider using a `secrets.h` file added to `.gitignore` for managing credentials safely:
+
+```cpp
+// secrets.h  ← add this filename to .gitignore
+#define BLYNK_AUTH_TOKEN   "your_real_token_here"
+#define WIFI_SSID1         "your_real_ssid"
+#define WIFI_PASS1         "your_real_password"
+```
+
+---
+
+## 📄 License
+
+This project is licensed under the [MIT License](LICENSE) — free to use, modify, and share.
+
+---
+
+<div align="center">
+
+Made with ❤️ by **Fun With Electronics**
+
+[📺 YouTube](https://youtube.com/@funwithelectronics273) • [💻 GitHub](https://github.com/Talha2933)
+
+</div>
