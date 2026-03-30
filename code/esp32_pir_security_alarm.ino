@@ -3,8 +3,8 @@
  *   ESP32 IoT Security Alarm System
  *   Author  : Fun With Electronics
  *   YouTube : https://www.youtube.com/@funwithelectronics273
- *   GitHub  : https://github.com/Talha2933/ESP32-PIR-Security-Alarm.git
- *   Version : 3.0
+ *   GitHub  : https://github.com/Talha2933
+ *   Version : 3.2
  *   Platform: ESP32 + Blynk IoT
  * ================================================================
  *
@@ -22,44 +22,43 @@
  *  GPIO 22  Relay / Buzzer    (OUTPUT)
  *  GPIO 2   Onboard LED       (OUTPUT)
  *
- * ================================================================
- */
+ *  */
 
 // ── Blynk credentials ──────────────────────────────────────────
-#define BLYNK_TEMPLATE_ID   "TEMPLATE_ID"
-#define BLYNK_TEMPLATE_NAME "Security Alarm"
-#define BLYNK_AUTH_TOKEN    "paste_your_token_here"    // <- paste your token here
+#define BLYNK_TEMPLATE_ID   "BLYNK_TEMPLATE_ID"   // <- paste your TEMPLATE ID here
+#define BLYNK_TEMPLATE_NAME "Security Alarm"      // <- paste your TEMPLATE NAME here
+#define BLYNK_AUTH_TOKEN    "BLYNK_AUTH_TOKEN"    // <- paste your token here
 #define BLYNK_PRINT         Serial
 
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <BlynkSimpleEsp32.h>
-
-// ── ESP32 internal temperature sensor (no library needed) ───────
-// ROM function — note the intentional SDK typo "temprature"
-extern "C" { uint8_t temprature_sens_read(); }
+#include <esp_chip_info.h>   // provides temperatureRead() in core 3.x+
+                             // (replaces the removed temprature_sens_read ROM hack)
 
 // ── WiFi credentials (primary + fallback) ──────────────────────
-const char* WIFI_SSID1 = "Redmi";               // primary WiFi name
-const char* WIFI_PASS1 = "funwithelectronics";  // primary password
-const char* WIFI_SSID2 = "esp32";               // fallback WiFi name
-const char* WIFI_PASS2 = "Password";            // fallback password
+const char* WIFI_SSID1 = "Redmi";                     // primary WiFi name
+const char* WIFI_PASS1 = "funwithelectronics";        // primary password
+const char* WIFI_SSID2 = "YOUR_BACKUP_WIFI_NAME";               // fallback WiFi name
+const char* WIFI_PASS2 = "YOUR_BACKUP_PASSWORD";               // fallback password
 
 // ── Physical pin assignments ────────────────────────────────────
-const int PIN_PIR   = 27;   // PIR motion sensor signal pin
-const int PIN_RELAY = 22;   // relay / buzzer output
-const int PIN_LED   = 2;    // onboard blue LED (status indicator)
+const int PIN_PIR   = 27;    // Gpio 27 Pir Sensor Pin
+const int PIN_RELAY = 22;    // 5v Relay Pin 
+const int PIN_LED   = 2;     // Buildin LED Pin Esp32
 
 // ── Runtime state ───────────────────────────────────────────────
 bool motionDetected  = false;
 bool alarmActive     = false;
-bool blynkWasOnline  = false;   // tracks last known Blynk state
+bool blynkWasOnline  = false;
+bool blynkConfigured = false;   // ← NEW: tracks if Blynk.config() has been called
+                                //   after the current WiFi session
 
 // ── Timing constants (milliseconds) ────────────────────────────
-const unsigned long PIR_IGNORE_MS    = 5000;   // ignore PIR for 5s after alarm ON (warm-up)
-const unsigned long MOTION_HOLD_MS   = 5000;   // keep relay ON 5s after last motion
-const unsigned long WIFI_RETRY_MS    = 8000;   // how long to attempt each WiFi network
-const unsigned long WIFI_WATCHDOG_MS = 20000;  // check WiFi health every 20s
+const unsigned long PIR_IGNORE_MS    = 5000;
+const unsigned long MOTION_HOLD_MS   = 5000;
+const unsigned long WIFI_RETRY_MS    = 8000;
+const unsigned long WIFI_WATCHDOG_MS = 10000;  // check every 10s (was 20s)
 
 // ── Timestamps ──────────────────────────────────────────────────
 unsigned long bootTime       = 0;
@@ -70,27 +69,24 @@ unsigned long lastWifiCheck  = 0;
 BlynkTimer timer;
 
 // ================================================================
-//  OFFLINE BUZZER (works without WiFi)
-//
-//  When the alarm is active and motion is detected, the relay
-//  (GPIO 22) fires regardless of WiFi state. This means the
-//  physical buzzer/siren will always sound locally even if the
-//  ESP is completely offline.
+//  HELPER: drive relay + onboard LED
 // ================================================================
 
-// ── Helper: drive relay + onboard LED ───────────────────────────
 void setAlarmOutput(bool on) {
   digitalWrite(PIN_RELAY, on ? HIGH : LOW);
-  // Onboard LED blinks fast when alarm triggered offline
   if (on && !blynkWasOnline) digitalWrite(PIN_LED, HIGH);
 }
 
 // ================================================================
-//  WiFi QUICK-SWITCH
+//  WiFi CONNECT
 //
-//  tryConnect() attempts one network for WIFI_RETRY_MS.
-//  connectToWiFi() tries primary first, instantly falls back to
-//  secondary if primary fails — no long blocking delays.
+//  tryConnect()   — attempts one network for WIFI_RETRY_MS
+//  connectToWiFi() — tries primary, falls back to secondary
+//
+//  KEY FIX: blynkConfigured is reset to false whenever WiFi
+//  drops. When WiFi comes back up, Blynk.config() + Blynk.connect()
+//  are called fresh. Without this, Blynk never reconnects after
+//  a router restart because the socket is permanently closed.
 // ================================================================
 
 bool tryConnect(const char* ssid, const char* pass) {
@@ -111,32 +107,35 @@ bool tryConnect(const char* ssid, const char* pass) {
 }
 
 void connectToWiFi() {
-  Serial.println("[WiFi] Starting connection...");
+  Serial.println("[WiFi] Connecting...");
   WiFi.mode(WIFI_STA);
-  if (!tryConnect(WIFI_SSID1, WIFI_PASS1)) {
-    if (!tryConnect(WIFI_SSID2, WIFI_PASS2)) {
-      Serial.println("[WiFi] Both networks failed. Running in OFFLINE mode.");
-      return;
-    }
+
+  bool wifiOK = tryConnect(WIFI_SSID1, WIFI_PASS1);
+  if (!wifiOK) wifiOK = tryConnect(WIFI_SSID2, WIFI_PASS2);
+
+  if (!wifiOK) {
+    Serial.println("[WiFi] Both networks failed. Running OFFLINE.");
+    blynkConfigured = false;   // reset so we retry Blynk next time WiFi returns
+    return;
   }
-  // WiFi connected — now connect Blynk
+
+  // ── WiFi is up → (re)configure and connect Blynk ─────────────
+  // This must happen every time WiFi reconnects, not just at boot.
+  // Calling Blynk.config() again after a drop is safe and required.
+  Serial.println("[Blynk] Configuring...");
   Blynk.config(BLYNK_AUTH_TOKEN);
-  Blynk.connect(3000);   // 3s non-blocking timeout
+  Blynk.connect(3000);
+  blynkConfigured = true;
 }
 
 // ================================================================
-//  BLYNK CALLBACKS — event-driven status (not polled)
-//
-//  BLYNK_CONNECTED   fires the instant auth succeeds
-//  BLYNK_DISCONNECTED fires inside Blynk stack while socket is
-//                    still alive — this is the only reliable place
-//                    to send a "device went offline" message
+//  BLYNK CALLBACKS
 // ================================================================
 
 BLYNK_CONNECTED() {
   blynkWasOnline = true;
   digitalWrite(PIN_LED, HIGH);
-  Blynk.syncVirtual(V2);         // restore alarm switch after reconnect
+  Blynk.syncVirtual(V2);
   Serial.println("[Blynk] ONLINE");
 }
 
@@ -152,7 +151,7 @@ BLYNK_DISCONNECTED() {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("\n[Boot] ESP32 Security Alarm — Fun With Electronics");
+  Serial.println("\n[Boot] ESP32 Security Alarm v3.1");
   Serial.println("[Boot] YouTube: @funwithelectronics273\n");
 
   pinMode(PIN_PIR,   INPUT_PULLDOWN);
@@ -165,9 +164,8 @@ void setup() {
   connectToWiFi();
   bootTime = millis();
 
-  // ── Timer schedule (staggered to avoid packet collision) ───
-  timer.setInterval(1000L,  sendUptime);        // uptime every 1s   → V5
-  timer.setInterval(2000L,  sendTemperature);   // chip temp every 2s → V3 (real-time)
+  timer.setInterval(1000L,  sendUptime);
+  timer.setInterval(2000L,  sendTemperature);
 }
 
 // ================================================================
@@ -176,47 +174,62 @@ void setup() {
 
 void loop() {
 
-  // ── WiFi watchdog: quick reconnect if connection drops ───────
+  // ── WiFi + Blynk watchdog ────────────────────────────────────
+  //
+  //  Runs every WIFI_WATCHDOG_MS (10s). Non-blocking — uses
+  //  millis() so motion detection is never paused.
+  //
+  //  Two failure cases handled:
+  //  1. WiFi dropped  → reconnect WiFi, then reconfigure Blynk
+  //  2. WiFi OK but Blynk socket died (e.g. server timeout)
+  //     → call Blynk.connect() again without redoing WiFi
+  //
   if (millis() - lastWifiCheck > WIFI_WATCHDOG_MS) {
     lastWifiCheck = millis();
+
     if (WiFi.status() != WL_CONNECTED) {
-      Serial.println("[WiFi] Lost — attempting reconnect...");
+      // ── Case 1: WiFi is down ──────────────────────────────────
+      Serial.println("[WiFi] Disconnected — reconnecting...");
+      blynkConfigured = false;   // force full Blynk re-init on reconnect
       connectToWiFi();
+
+    } else if (!Blynk.connected()) {
+      // ── Case 2: WiFi up but Blynk socket closed ───────────────
+      // This happens after a router restart where the ESP kept its
+      // IP but Blynk's TCP connection was dropped server-side.
+      Serial.println("[Blynk] Socket lost — reconnecting Blynk...");
+      Blynk.config(BLYNK_AUTH_TOKEN);
+      Blynk.connect(3000);
     }
   }
 
   if (Blynk.connected()) Blynk.run();
   timer.run();
 
-  // ── Motion detection (runs online AND offline) ───────────────
+  // ── Motion detection (works online AND offline) ──────────────
   if (!alarmActive) return;
-
-  // Skip PIR reading during warm-up window after alarm is turned ON
   if (millis() - alarmStartTime < PIR_IGNORE_MS) return;
 
   int pirVal = digitalRead(PIN_PIR);
 
-  // Motion START
   if (pirVal == HIGH) {
     lastMotionTime = millis();
     if (!motionDetected) {
       motionDetected = true;
-      setAlarmOutput(true);          // relay ON — works offline too
+      setAlarmOutput(true);
       Serial.println("[Motion] DETECTED");
 
       if (Blynk.connected()) {
         Blynk.virtualWrite(V0, 1);
         Blynk.virtualWrite(V1, "!! MOTION DETECTED !!");
-        // Critical alarm notification (push + email via Blynk event)
         Blynk.logEvent("motion_detected");
       }
     }
   }
 
-  // Motion STOP (hold window expired — no signal for MOTION_HOLD_MS)
   if (motionDetected && millis() - lastMotionTime > MOTION_HOLD_MS) {
     motionDetected = false;
-    setAlarmOutput(false);           // relay OFF
+    setAlarmOutput(false);
     Serial.println("[Motion] CLEARED");
 
     if (Blynk.connected()) {
@@ -228,37 +241,24 @@ void loop() {
 
 // ================================================================
 //  ESP32 INTERNAL TEMPERATURE  →  V3
-//
-//  temprature_sens_read() returns the raw die temperature in
-//  Fahrenheit (this is a quirk of the ESP32 ROM — the value is
-//  always Fahrenheit regardless of locale).
-//
-//  Correct conversion:  °C = (raw_F - 32) / 1.8
-//
-//  The reading is the CHIP DIE temperature, which runs roughly
-//  10–20°C above ambient. A reading of 50–65°C is completely
-//  normal when the chip is active. Above 80°C indicates a
-//  thermal issue (poor airflow, high load, or hardware fault).
-//
-//  Sent every 2 seconds for real-time monitoring on dashboard.
 // ================================================================
 
 void sendTemperature() {
   if (!Blynk.connected()) return;
 
-  uint8_t rawF = temprature_sens_read();
+  // temperatureRead() is the official API in ESP32 Arduino core 3.x+
+  // Returns chip die temperature directly in °C — no conversion needed.
+  // The old temprature_sens_read() ROM function was removed in core 3.x.
+  float tempC = temperatureRead();
 
-  // Sensor returns 0 or 255 when not yet ready — skip that reading
-  if (rawF == 0 || rawF == 255) {
-    Serial.println("[Temp] Sensor not ready, skipping.");
+  // Sanity check — discard obviously invalid readings
+  if (tempC < -40.0f || tempC > 125.0f) {
+    Serial.println("[Temp] Reading out of range, skipping.");
     return;
   }
 
-  // Convert Fahrenheit → Celsius (correct formula for this ROM function)
-  float tempC = (float)(rawF - 32) / 1.8f;
-
   Blynk.virtualWrite(V3, tempC);
-  Serial.printf("[Temp] Chip: %.1f C (raw ROM value: %d F)\n", tempC, rawF);
+  Serial.printf("[Temp] Chip: %.1f C\n", tempC);
 }
 
 // ================================================================
@@ -274,7 +274,7 @@ void sendUptime() {
 }
 
 // ================================================================
-//  ALARM SWITCH  (V2 — Button widget in Blynk dashboard)
+//  ALARM SWITCH  →  V2
 // ================================================================
 
 BLYNK_WRITE(V2) {
@@ -283,7 +283,7 @@ BLYNK_WRITE(V2) {
   if (state == 1) {
     alarmActive    = true;
     alarmStartTime = millis();
-    motionDetected = false;         // clear stale state from previous session
+    motionDetected = false;
     Serial.println("[Alarm] ON — PIR warm-up 5s...");
     if (Blynk.connected()) {
       Blynk.virtualWrite(V1, "Alarm Armed — Stabilizing...");
