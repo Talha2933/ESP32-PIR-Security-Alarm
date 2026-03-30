@@ -16,8 +16,7 @@
 - [Blynk IoT Configuration](#2-blynk-iot-configuration)
 - [Arduino IDE Setup](#3-arduino-ide-setup)
 - [Offline Mode Explained](#4-offline-mode-explained)
-- [Uploading to GitHub](#5-uploading-to-github)
-- [Troubleshooting](#6-troubleshooting)
+- [Troubleshooting](#5-troubleshooting)
 
 ---
 
@@ -265,59 +264,7 @@ If the primary WiFi is unavailable, the ESP32 automatically tries the backup net
 
 ---
 
-## 5. Uploading to GitHub
-
-### ⚠️ IMPORTANT — Remove Credentials Before Uploading
-
-> **Never upload your Auth Token or WiFi password to a public GitHub repository.**  
-> Replace real values with placeholder text before uploading:
-
-```cpp
-#define BLYNK_AUTH_TOKEN    "YOUR_AUTH_TOKEN_HERE"
-
-const char* WIFI_SSID1 = "YOUR_WIFI_NAME";
-const char* WIFI_PASS1 = "YOUR_WIFI_PASSWORD";
-const char* WIFI_SSID2 = "YOUR_BACKUP_WIFI_NAME";
-const char* WIFI_PASS2 = "YOUR_BACKUP_PASSWORD";
-```
-
-### Option A — Upload via GitHub Website (Easiest)
-
-1. Open your repository on GitHub.
-2. Click **Add file → Upload files**.
-3. Drag and drop your `SecurityAlarm.ino` file.
-4. In the commit message box type: `Add ESP32 Security Alarm sketch v3.2`
-5. Click **Commit changes**.
-
-### Option B — Upload via Git Command Line
-
-```bash
-# Navigate to your project folder
-cd path/to/your/SecurityAlarm/folder
-
-# Initialize Git
-git init
-
-# Link to your GitHub repository
-git remote add origin https://github.com/Talha2933/ESP32-PIR-Security-Alarm.git
-
-# Stage all files
-git add .
-
-# Commit
-git commit -m "Add ESP32 Security Alarm sketch v3.2"
-
-# Push to GitHub
-git push -u origin main
-```
-
-> 💡 **Personal Access Token**: GitHub no longer accepts regular passwords for command-line pushes.  
-> Go to **GitHub → Settings → Developer Settings → Personal Access Tokens → Tokens (classic) → Generate new token**.  
-> Give it `repo` scope and use the token as your password when prompted.
-
----
-
-## 6. Troubleshooting
+## 5. Troubleshooting
 
 | Problem | Solution |
 |---------|----------|
