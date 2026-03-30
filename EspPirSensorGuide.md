@@ -95,45 +95,17 @@ Complete these steps in the **Blynk web dashboard** ([blynk.cloud](https://blynk
 
 Inside your template, go to the **Datastreams** tab and create each pin below:
 
-#### V0 — Motion Indicator
+#### V0 — Motion Indicator              #### V1 — Motion Status              #### V2 — Alarm Control Switch       #### V3 — ESP32 Temperature
 
-| Field        | Value            |
-|--------------|------------------|
-| Virtual Pin  | V0               |
-| Name         | Motion Indicator |
-| Data Type    | Integer          |
-| Min Value    | 0                |
-| Max Value    | 1                |
-
-#### V1 — Motion Status
-
-| Field        | Value         |
-|--------------|---------------|
-| Virtual Pin  | V1            |
-| Name         | Motion Status |
-| Data Type    | String        |
-
-#### V2 — Alarm Control Switch
-
-| Field        | Value         |
-|--------------|---------------|
-| Virtual Pin  | V2            |
-| Name         | Alarm Control |
-| Data Type    | Integer       |
-| Min Value    | 0             |
-| Max Value    | 1             |
-
-#### V3 — ESP32 Temperature
-
-| Field        | Value            |
-|--------------|------------------|
-| Virtual Pin  | V3               |
-| Name         | Chip Temperature |
-| Data Type    | Double           |
-| Min Value    | 0                |
-| Max Value    | 100              |
-| Units        | °C               |
-
+| Field        | Value            |     | Field        | Value         |     | Field        | Value         |     | Field        | Value            |
+|--------------|------------------|     |--------------|---------------|     |--------------|---------------|     |--------------|------------------|
+| Virtual Pin  | V0               |     | Virtual Pin  | V1            |     | Virtual Pin  | V2            |     | Virtual Pin  | V3               |
+| Name         | Motion Indicator |     | Name         | Motion Status |     | Name         | Alarm Control |     | Name         | Chip Temperature |
+| Data Type    | Integer          |     | Data Type    | String        |     | Data Type    | Integer       |     | Data Type    | Double           |
+| Min Value    | 0                |                                          | Min Value    | 0             |     | Min Value    | 0                |
+| Max Value    | 1                |                                          | Max Value    | 1             |     | Max Value    | 100              |
+                                                                                                                  | Units        | °C               |
+                                                                                                                  
 > 📌 **Note on Temperature Readings**  
 > V3 shows ESP32 chip die temperature — not room temperature. A reading of **45–65°C is completely normal** during operation. Only worry if it goes above 80°C.
 
