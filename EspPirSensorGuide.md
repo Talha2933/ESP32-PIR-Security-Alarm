@@ -6,7 +6,6 @@
 
 [![YouTube](https://img.shields.io/badge/YouTube-Fun%20With%20Electronics-red?logo=youtube)](https://www.youtube.com/@funwithelectronics273)
 [![GitHub](https://img.shields.io/badge/GitHub-Repo-black?logo=github)](https://github.com/Talha2933/ESP32-PIR-Security-Alarm)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
