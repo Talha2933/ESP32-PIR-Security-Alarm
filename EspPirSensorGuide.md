@@ -2,7 +2,7 @@
 
 > PIR motion alarm with Blynk IoT push notifications, email alerts, and full offline support.
 
-**Version 3.0 &nbsp;|&nbsp; Blynk IoT &nbsp;|&nbsp; Arduino IDE**
+**Version 3.2 &nbsp;|&nbsp; Blynk IoT &nbsp;|&nbsp; Arduino IDE**
 
 [![YouTube](https://img.shields.io/badge/YouTube-Fun%20With%20Electronics-red?logo=youtube)](https://www.youtube.com/@funwithelectronics273)
 [![GitHub](https://img.shields.io/badge/GitHub-Repo-black?logo=github)](https://github.com/Talha2933/ESP32-PIR-Security-Alarm)
@@ -27,11 +27,13 @@ This project turns an ESP32 microcontroller into a WiFi-connected PIR motion ala
 
 ### Key Features
 
-- PIR motion detection with configurable hold time
+- PIR motion detection with configurable hold time (`MOTION_HOLD_MS`)
 - Works fully **offline** — relay triggers without WiFi
-- **Quick WiFi switch**: tries primary network, instantly falls back to secondary
+- **Quick WiFi switch**: tries primary network, falls back to secondary within 8 seconds each
+- Non-blocking WiFi + Blynk watchdog — motion detection is never paused during reconnect
 - Blynk push notification + email on every motion event
-- Real-time ESP32 chip temperature on dashboard (every 5 seconds)
+- Real-time ESP32 chip temperature via `temperatureRead()` (Arduino core 3.x, every 2 seconds)
+- Live uptime counter (`HH:MM:SS`) on V5
 - No external temperature library required
 
 ### 1.1 Virtual Pin Map
@@ -42,16 +44,17 @@ This project turns an ESP32 microcontroller into a WiFi-connected PIR motion ala
 | V1  | String    | —       | Motion status text label       |
 | V2  | Integer   | 0 / 1   | Alarm ON / OFF switch button   |
 | V3  | Double    | 0 – 100 | ESP32 chip temperature in °C   |
+| V5  | String    | —       | ESP32 uptime (HH:MM:SS)        |
 
 ### 1.2 Hardware Required
 
-| Component                        | Qty | Notes                          |
-|----------------------------------|-----|--------------------------------|
-| ESP32 Dev Board (any variant)    | 1   | 38-pin or 30-pin both work     |
-| HC-SR501 PIR Motion Sensor       | 1   | Adjust sensitivity as needed   |
-| 5V Relay Module                  | 1   | Active-HIGH, GPIO 22           |
-| Buzzer or Siren (optional)       | 1   | Connect to relay NO terminal   |
-| Micro USB Cable + 5V Adapter     | 1   | Minimum 1A rated               |
+| Component                        | Qty | Notes                              |
+|----------------------------------|-----|------------------------------------|
+| ESP32 Dev Board (any variant)    | 1   | 38-pin or 30-pin both work         |
+| HC-SR501 PIR Motion Sensor       | 1   | OUTPUT → GPIO 27 (INPUT_PULLDOWN)  |
+| 5V Relay Module                  | 1   | Active-HIGH → GPIO 22              |
+| Buzzer or Siren (optional)       | 1   | Connect to relay NO terminal       |
+| Micro USB Cable + 5V Adapter     | 1   | Minimum 1A rated                   |
 
 ---
 
@@ -135,6 +138,14 @@ Inside your template, go to the **Datastreams** tab and create each pin below:
 > 📌 **Note on Temperature Readings**  
 > V3 shows ESP32 chip die temperature — not room temperature. A reading of **45–65°C is completely normal** during operation. Only worry if it goes above 80°C.
 
+#### V5 — Uptime
+
+| Field        | Value       |
+|--------------|-------------|
+| Virtual Pin  | V5          |
+| Name         | ESP32 Uptime|
+| Data Type    | String      |
+
 ### Step 4 — Create the Motion Detected Event
 
 11. Inside your template click the **Events** tab.
@@ -164,6 +175,7 @@ Open the Blynk mobile app, tap your device, then tap the **edit (pencil) icon** 
 | LED               | V0  | Motion       | Color: Red            |
 | Label             | V1  | Status       | Font: Medium          |
 | Gauge/SuperChart  | V3  | Chip Temp °C | Min: 0, Max: 100      |
+| Label             | V5  | Uptime       | Font: Small           |
 
 > 💡 **SuperChart Tip**: Use SuperChart for V3 to see temperature history over time. Set the time range to **Live** for a real-time scrolling graph.
 
@@ -201,13 +213,13 @@ Open the Blynk mobile app, tap your device, then tap the **edit (pencil) icon** 
 12. Find these lines near the top and update them with your credentials:
 
     ```cpp
-    #define BLYNK_TEMPLATE_ID  "YOUR_TEMPLATE_ID"   // paste your Template ID
-    #define BLYNK_AUTH_TOKEN   "YOUR_AUTH_TOKEN"     // paste your Auth Token
+    #define BLYNK_TEMPLATE_ID   "YOUR_TEMPLATE_ID"    // paste your Template ID
+    #define BLYNK_AUTH_TOKEN    "YOUR_AUTH_TOKEN"      // paste your Auth Token
 
-    const char* ssid1 = "YOUR_WIFI_NAME";            // your primary WiFi name
-    const char* pass1 = "YOUR_WIFI_PASSWORD";        // your primary WiFi password
-    const char* ssid2 = "YOUR_BACKUP_WIFI_NAME";     // backup WiFi (e.g. mobile hotspot)
-    const char* pass2 = "YOUR_BACKUP_PASSWORD";
+    const char* WIFI_SSID1 = "YOUR_WIFI_NAME";         // your primary WiFi name
+    const char* WIFI_PASS1 = "YOUR_WIFI_PASSWORD";     // your primary WiFi password
+    const char* WIFI_SSID2 = "YOUR_BACKUP_WIFI_NAME";  // backup WiFi (e.g. mobile hotspot)
+    const char* WIFI_PASS2 = "YOUR_BACKUP_PASSWORD";
     ```
 
 13. Plug the ESP32 into your computer via Micro USB.
@@ -238,16 +250,16 @@ The alarm works **completely without internet**. Here is exactly what happens in
 | WiFi reconnects                       | Continues normally       | Alarm switch state restored via `syncVirtual(V2)` |
 
 > **How Offline Works in the Code**  
-> The relay is driven by `digitalWrite(PIN_RELAY, HIGH)` regardless of WiFi state. All `Blynk.virtualWrite()` calls are wrapped in `if (Blynk.connected())` checks so they are skipped when offline. The physical siren always works.
+> The relay is driven by `setAlarmOutput()` which calls `digitalWrite(PIN_RELAY, HIGH)` regardless of WiFi state. All `Blynk.virtualWrite()` calls are wrapped in `if (Blynk.connected())` checks so they are skipped when offline. The physical siren always works.
 
 ### WiFi Quick-Switch Logic
 
-If the primary WiFi is unavailable, the ESP32 automatically tries the backup network within 10 seconds:
+If the primary WiFi is unavailable, the ESP32 automatically tries the backup network. Each attempt times out after **8 seconds** (`WIFI_RETRY_MS`):
 
-1. On boot, `connectToWiFi()` attempts `ssid1` for 10 seconds.
-2. If `ssid1` fails, it immediately attempts `ssid2` for 10 seconds.
-3. If both fail, the ESP runs in offline mode and tries again on next `loop()` cycle.
-4. The moment either network is available, the ESP reconnects and Blynk resumes.
+1. `connectToWiFi()` calls `tryConnect(WIFI_SSID1, WIFI_PASS1)` — waits up to 8 s.
+2. If that fails, immediately tries `tryConnect(WIFI_SSID2, WIFI_PASS2)` — waits up to 8 s.
+3. If both fail, the ESP runs in offline mode. A **non-blocking watchdog** retries every 10 seconds (`WIFI_WATCHDOG_MS`) without pausing motion detection.
+4. The moment either network is available, the ESP reconnects, calls `Blynk.config()` + `Blynk.connect()` fresh, and Blynk resumes.
 
 > 💡 **Tip**: Set `ssid2` to your **mobile hotspot**. If your home router goes down, enable your hotspot with the name and password set in `ssid2` — the ESP32 will connect automatically.
 
@@ -261,12 +273,12 @@ If the primary WiFi is unavailable, the ESP32 automatically tries the backup net
 > Replace real values with placeholder text before uploading:
 
 ```cpp
-#define BLYNK_AUTH_TOKEN   "YOUR_AUTH_TOKEN_HERE"
+#define BLYNK_AUTH_TOKEN    "YOUR_AUTH_TOKEN_HERE"
 
-const char* ssid1 = "YOUR_WIFI_NAME";
-const char* pass1 = "YOUR_WIFI_PASSWORD";
-const char* ssid2 = "YOUR_BACKUP_WIFI_NAME";
-const char* pass2 = "YOUR_BACKUP_PASSWORD";
+const char* WIFI_SSID1 = "YOUR_WIFI_NAME";
+const char* WIFI_PASS1 = "YOUR_WIFI_PASSWORD";
+const char* WIFI_SSID2 = "YOUR_BACKUP_WIFI_NAME";
+const char* WIFI_PASS2 = "YOUR_BACKUP_PASSWORD";
 ```
 
 ### Option A — Upload via GitHub Website (Easiest)
@@ -274,7 +286,7 @@ const char* pass2 = "YOUR_BACKUP_PASSWORD";
 1. Open your repository on GitHub.
 2. Click **Add file → Upload files**.
 3. Drag and drop your `SecurityAlarm.ino` file.
-4. In the commit message box type: `Add ESP32 Security Alarm sketch v3.0`
+4. In the commit message box type: `Add ESP32 Security Alarm sketch v3.2`
 5. Click **Commit changes**.
 
 ### Option B — Upload via Git Command Line
@@ -293,7 +305,7 @@ git remote add origin https://github.com/Talha2933/ESP32-PIR-Security-Alarm.git
 git add .
 
 # Commit
-git commit -m "Add ESP32 Security Alarm sketch v3.0"
+git commit -m "Add ESP32 Security Alarm sketch v3.2"
 
 # Push to GitHub
 git push -u origin main
@@ -309,11 +321,12 @@ git push -u origin main
 
 | Problem | Solution |
 |---------|----------|
-| Blynk shows device offline even when ESP is running | This is correct behaviour when WiFi is disconnected. The `BLYNK_DISCONNECTED()` callback fires before the socket closes. Check your router. |
-| Temperature shows 53°C or similar at rest | This is normal. The sensor reads chip die temperature which is 10–20°C above room temperature. Not broken. |
+| Blynk shows device offline even when ESP is running | This is expected when WiFi drops. The `BLYNK_DISCONNECTED()` callback fires and sets the LED low. The watchdog will reconnect within 10 s. Check your router. |
+| Temperature shows 53°C or similar at rest | This is normal. `temperatureRead()` returns chip die temperature which is 10–20°C above room temperature. Not broken. |
+| `temperatureRead()` causes compile error | You are on ESP32 Arduino core older than 3.x. Update via **Boards Manager** to the latest Espressif Systems release. |
 | No push notification received | Check that the event code in Blynk exactly matches `motion_detected` (lowercase, underscore). Enable notifications in the Blynk app settings. |
-| PIR triggers immediately when alarm turns ON | The 5-second warm-up window handles this. If false triggers persist, reduce sensitivity on the HC-SR501 potentiometer. |
-| WiFi 2 not connecting | Confirm `ssid2` and `pass2` are correct. SSID is case-sensitive. Ensure the second network has DHCP enabled. |
+| PIR triggers immediately when alarm turns ON | The 5-second warm-up window (`PIR_IGNORE_MS`) handles this. If false triggers persist, increase it to `8000` or reduce sensitivity on the HC-SR501 potentiometer. |
+| WiFi 2 not connecting | Confirm `WIFI_SSID2` and `WIFI_PASS2` are correct. SSID is case-sensitive. Ensure the second network has DHCP enabled. |
 | COM port not visible in Arduino IDE | Install the CP2102 or CH340 USB driver for your ESP32 board. Search for your board model + USB driver online. |
 | Upload fails with 'Failed to connect' | Hold the **BOOT** button on the ESP32 while clicking Upload. Release after you see `Connecting...` in the IDE. |
 
