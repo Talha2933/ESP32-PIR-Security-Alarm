@@ -164,7 +164,7 @@ Open the Blynk mobile app, tap your device, then tap the pencil icon to add widg
 
 1. **Clone this repo:**
    ```bash
-   git clone https://github.com/funwithelectronics273/ESP32-Security-Alarm.git
+   git clone https://github.com/Talha2933/ESP32-PIR-Security-Alarm.git
    ```
 
 2. **Set up Blynk:**
