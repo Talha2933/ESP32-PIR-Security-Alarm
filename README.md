@@ -21,7 +21,6 @@
 9. [Getting Started](#9-getting-started)
 10. [Troubleshooting](#10-troubleshooting)
 11. [Security Warning](#11-security-warning)
-12. [License](#12-license)
 
 ---
 
@@ -202,10 +201,6 @@ Open the Blynk mobile app, tap your device, then tap the pencil icon to add widg
 > Your Auth Token and WiFi passwords must be replaced with placeholder text before committing. Anyone with your Auth Token can control your device.
 
 ---
-
-## 12. License
-
-This project is licensed under the [MIT License](LICENSE).
 
 ---
 
